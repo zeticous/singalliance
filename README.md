@@ -4,7 +4,10 @@ The following code is used for submission of the SingAlliance coding challenge.
 
 # How to Run
 
-In terminal, you can run the following to get the output:
+Before running the script, make sure all the requirements are met. If not, made sure `pip` is installed, and run the following:
+> pip install -r requirements.txt
+
+The script can be executed using the following command:
 > python3 main.py
 
 The global minimum variance portfolio (GMVP) is computed in closed form. The efficient frontier is then computed using the 
