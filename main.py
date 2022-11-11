@@ -4,7 +4,6 @@ import pandas as pd
 import numpy as np
 import json
 from matplotlib import pyplot as plt
-import logging
 
 START = "2022-10-01T00:00:00+00:00"
 END = "2022-11-01T23:00:00+00:00"
