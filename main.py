@@ -3,6 +3,7 @@ from datetime import datetime
 import pandas as pd
 import numpy as np
 import json
+import asyncio
 from matplotlib import pyplot as plt
 
 START = "2022-10-01T00:00:00+00:00"
@@ -11,18 +12,13 @@ END = "2022-11-01T23:00:00+00:00"
 instruments = ['BTC', 'ETH', 'SOL']
 
 
-class FTXDataException(Exception):
-    pass
-
-
 def _get_returns(market: str, start: datetime, end: datetime, resolution: int):
-    print(f"Fetching return information for {market}")
     url = f"https://ftx.com/api/markets/{market}/candles?resolution={resolution}&start_time={int(start.timestamp())}&end_time={int(end.timestamp())}"
     headers = {"accept": "application/json"}
     response = requests.get(url, headers=headers)
-    response_json = json.loads(response.text)
     if not response.status_code == 200:
-        raise FTXDataException(f"{response_json['error']}")
+        response.raise_for_status()
+    response_json = json.loads(response.text)
     df = pd.DataFrame.from_dict(response_json["result"])
     df['startTime'] = pd.to_datetime(df['startTime'])
     df['log_ret'] = np.log(df.close) - np.log(df.close.shift(1))
@@ -32,22 +28,29 @@ def _get_returns(market: str, start: datetime, end: datetime, resolution: int):
     return returns.dropna()
 
 
-def main():
+async def main():
     start = datetime.fromisoformat(START)
     end = datetime.fromisoformat(END)
     res = 60 * 60
     close_df = None
     for instrument in instruments:
-        try:
-            df = _get_returns(f"{instrument}-PERP", start, end, res)
-        except FTXDataException as e:
-            print(str(e))
-            return
+        print(f"Attempting to fetch return information for {instrument}-PERP")
+        df = None
+        for i in range(100):
+            try:
+                df = _get_returns(f"{instrument}-PERP", start, end, res)
+            except Exception:
+                continue
+            else:
+                break
+        if df is None:
+            print(f"All 100 attempts failed, not returning results.")
+            return False
         if close_df is None:
             close_df = df
         else:
             close_df = close_df.merge(df, how='left')
-    cov = close_df.cov(numeric_only=True).to_numpy()
+    cov = close_df.cov().to_numpy()
     mean = close_df.mean(numeric_only=True).to_numpy()
 
     # Calculation of Global Minimum Variance Portfolio
@@ -82,7 +85,8 @@ def main():
     plt.plot(x, y)
     plt.savefig('frontier.png')
     print("All done!")
+    return True
 
 
 if __name__ == "__main__":
-    main()
+    asyncio.run(main())
